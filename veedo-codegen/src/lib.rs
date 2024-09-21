@@ -3,7 +3,7 @@ use std::fmt::Write;
 use proc_macro::TokenStream;
 use ruint::aliases::U256;
 use sha2::{Digest, Sha256};
-use veedo_ff::{FieldElement, PRIME};
+use veedo_ff::{FieldElement, PrimeField, PRIME};
 
 const N_STATE: u64 = 2;
 const N_COLS: u64 = 10;
@@ -33,20 +33,12 @@ fn write_round_constants(buf: &mut String) -> std::fmt::Result {
     )?;
 
     for constant in constants {
-        let x_raw = constant.0 .0 .0;
-        let y_raw = constant.1 .0 .0;
+        let x_raw = constant.0.repr();
+        let y_raw = constant.1.repr();
 
         writeln!(buf, "    [")?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            x_raw
-        )?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            y_raw
-        )?;
+        writeln!(buf, "        ::veedo_ff::FieldElement::new({:?}),", x_raw)?;
+        writeln!(buf, "        ::veedo_ff::FieldElement::new({:?}),", y_raw)?;
         writeln!(buf, "    ],")?;
     }
 
@@ -63,30 +55,22 @@ fn write_mutplication_matrix(buf: &mut String) -> std::fmt::Result {
 
     let vectors = [
         [
-            FieldElement::from(0x9adea15e459e2a62c3166a2a2054c3d_u128),
-            FieldElement::from(0x187ccb0e2b63d835f7cf33d7555ca95d_u128),
+            FieldElement::from_u128(0x9adea15e459e2a62c3166a2a2054c3d_u128),
+            FieldElement::from_u128(0x187ccb0e2b63d835f7cf33d7555ca95d_u128),
         ],
         [
-            FieldElement::from(0x1da2b56d14370ab50833f82f3966c9d7_u128),
-            FieldElement::from(0x207e36a32b1da58011ae276251516aa4_u128),
+            FieldElement::from_u128(0x1da2b56d14370ab50833f82f3966c9d7_u128),
+            FieldElement::from_u128(0x207e36a32b1da58011ae276251516aa4_u128),
         ],
     ];
 
     for vector in vectors {
-        let x_raw = vector[0].0 .0;
-        let y_raw = vector[1].0 .0;
+        let x_raw = vector[0].repr();
+        let y_raw = vector[1].repr();
 
         writeln!(buf, "    [")?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            x_raw
-        )?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            y_raw
-        )?;
+        writeln!(buf, "        ::veedo_ff::FieldElement::new({:?}),", x_raw)?;
+        writeln!(buf, "        ::veedo_ff::FieldElement::new({:?}),", y_raw)?;
         writeln!(buf, "    ],")?;
     }
 
@@ -115,6 +99,11 @@ fn generate_constants() -> Vec<(FieldElement, FieldElement)> {
 
     constant_seq
         .chunks_exact(2)
-        .map(|chunk| (FieldElement::from(chunk[0]), FieldElement::from(chunk[1])))
+        .map(|chunk| {
+            (
+                FieldElement::from_u128(chunk[0]),
+                FieldElement::from_u128(chunk[1]),
+            )
+        })
         .collect()
 }

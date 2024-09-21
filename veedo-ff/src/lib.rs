@@ -1,12 +1,19 @@
-use ark_ff::fields::{Fp128, MontBackend, MontConfig};
-
-pub use ark_ff::{BigInteger128, Field};
+pub use ff::{Field, PrimeField};
 
 pub const PRIME: u128 = 0x30000003000000010000000000000001;
 
-#[derive(MontConfig)]
-#[modulus = "63802944035360449460622495747797942273"]
-#[generator = "3"]
-pub struct FrConfig;
+#[derive(PrimeField)]
+#[PrimeFieldModulus = "63802944035360449460622495747797942273"]
+#[PrimeFieldGenerator = "7"]
+#[PrimeFieldReprEndianness = "little"]
+pub struct FieldElement([u64; 2]);
 
-pub type FieldElement = Fp128<MontBackend<FrConfig, 2>>;
+impl FieldElement {
+    pub const fn new(repr: [u64; 2]) -> Self {
+        Self(repr)
+    }
+
+    pub const fn repr(&self) -> [u64; 2] {
+        self.0
+    }
+}
