@@ -1,0 +1,15 @@
+[package]
+name = "veedo-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+veedo-codegen = { version = "0.1.0", path = "../veedo-codegen" }
+veedo-ff = { version = "0.1.0", path = "../veedo-ff" }
+
+[dev-dependencies]
+criterion = { version = "0.5.1", default-features = false }
+
+[[bench]]
+name = "compute_100k_iterations"
+harness = false
