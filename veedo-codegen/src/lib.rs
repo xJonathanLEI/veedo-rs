@@ -23,6 +23,13 @@ pub fn mds_matrix(_input: TokenStream) -> TokenStream {
     output.parse().unwrap()
 }
 
+#[proc_macro]
+pub fn fn_cube_root(_input: TokenStream) -> TokenStream {
+    let mut output = String::new();
+    write_fn_cube_root(&mut output).unwrap();
+    output.parse().unwrap()
+}
+
 fn write_round_constants(buf: &mut String) -> std::fmt::Result {
     let constants = generate_constants();
 
@@ -91,6 +98,35 @@ fn write_mds_matrix(buf: &mut String) -> std::fmt::Result {
     }
 
     writeln!(buf, "];")?;
+
+    Ok(())
+}
+
+#[allow(clippy::assertions_on_constants)]
+fn write_fn_cube_root(buf: &mut String) -> std::fmt::Result {
+    writeln!(buf, "#[inline(always)]")?;
+    writeln!(
+        buf,
+        "fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
+    )?;
+
+    const POW: u128 = (2 * PRIME - 1) / 3;
+    assert!(POW != 0, "exponent must not be zero");
+
+    const POW_LIMBS: [u64; 2] = [POW as u64, (POW >> 64) as u64];
+
+    // This optimization is possible due to non-zero exp.
+    writeln!(buf, "    let mut res = *x;")?;
+
+    for bit in veedo_ff::BitIteratorBE::without_leading_zeros(POW_LIMBS).skip(1) {
+        writeln!(buf, "    res.square_in_place();")?;
+        if bit {
+            writeln!(buf, "    res *= x;")?;
+        }
+    }
+
+    writeln!(buf, "    res")?;
+    writeln!(buf, "}}")?;
 
     Ok(())
 }

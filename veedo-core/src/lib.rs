@@ -1,20 +1,14 @@
-use veedo_ff::{Field, FieldElement, PRIME};
+use veedo_ff::{Field, FieldElement};
 
 mod constants;
 use constants::{MDS_MATRIX, ROUND_CONSTANTS};
 
-const POW: u128 = (2 * PRIME - 1) / 3;
-
 pub fn compute_delay_function(n_iters: usize, x: u128, y: u128) -> (FieldElement, FieldElement) {
-    assert!(n_iters > 0, "n_iters should be a positive number");
-
     let (mut x, mut y) = (FieldElement::from(x), FieldElement::from(y));
-
-    let pow = [POW as u64, (POW >> 64) as u64];
 
     for round_constant in ROUND_CONSTANTS.iter().cycle().take(n_iters) {
         // Cube root
-        (x, y) = (x.pow(pow), y.pow(pow));
+        (x, y) = (cube_root(&x), cube_root(&y));
 
         // Multiply with the matrix and add constants
         (x, y) = (
@@ -25,6 +19,8 @@ pub fn compute_delay_function(n_iters: usize, x: u128, y: u128) -> (FieldElement
 
     (x, y)
 }
+
+veedo_codegen::fn_cube_root!();
 
 #[cfg(test)]
 mod tests {

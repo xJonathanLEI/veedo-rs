@@ -1,6 +1,6 @@
 use ark_ff::fields::{Fp128, MontBackend, MontConfig};
 
-pub use ark_ff::{BigInteger128, Field};
+pub use ark_ff::{BigInteger128, BitIteratorBE, Field};
 
 pub const PRIME: u128 = 0x30000003000000010000000000000001;
 
