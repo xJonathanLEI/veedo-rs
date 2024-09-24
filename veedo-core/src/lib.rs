@@ -1,23 +1,106 @@
-use veedo_ff::{Field, FieldElement};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, Ordering},
+    Arc,
+};
+
+use veedo_ff::{BigInteger128, Field, FieldElement};
 
 mod constants;
 use constants::{MDS_MATRIX, ROUND_CONSTANTS};
 
+#[derive(Debug, Clone)]
+struct SyncState {
+    low: Arc<AtomicU64>,
+    high: Arc<AtomicU64>,
+    ready: Arc<AtomicBool>,
+}
+
 pub fn compute_delay_function(n_iters: usize, x: u128, y: u128) -> (FieldElement, FieldElement) {
-    let (mut x, mut y) = (FieldElement::from(x), FieldElement::from(y));
+    let x_montgomery = FieldElement::from(x);
+    let y_montgomery = FieldElement::from(y);
 
-    for round_constant in ROUND_CONSTANTS.iter().cycle().take(n_iters) {
-        // Cube root
-        (x, y) = (cube_root(&x), cube_root(&y));
+    let x_state = SyncState {
+        low: Arc::new(AtomicU64::new(x_montgomery.0 .0[0])),
+        high: Arc::new(AtomicU64::new(x_montgomery.0 .0[1])),
+        ready: Arc::new(AtomicBool::new(false)),
+    };
 
-        // Multiply with the matrix and add constants
-        (x, y) = (
-            x * MDS_MATRIX[0][0] + y * MDS_MATRIX[0][1] + round_constant[0],
-            x * MDS_MATRIX[1][0] + y * MDS_MATRIX[1][1] + round_constant[1],
-        );
-    }
+    let y_state = SyncState {
+        low: Arc::new(AtomicU64::new(y_montgomery.0 .0[0])),
+        high: Arc::new(AtomicU64::new(y_montgomery.0 .0[1])),
+        ready: Arc::new(AtomicBool::new(false)),
+    };
+
+    let x_thread = {
+        let current_state = x_state.clone();
+        let other_state = y_state.clone();
+
+        std::thread::spawn(move || {
+            compute_in_thread::<0>(n_iters, x_montgomery, current_state, other_state)
+        })
+    };
+    let y_thread =
+        std::thread::spawn(move || compute_in_thread::<1>(n_iters, y_montgomery, y_state, x_state));
+
+    // Joining never fails as the computation threads never panic.
+    let x = unsafe { x_thread.join().unwrap_unchecked() };
+    let y = unsafe { y_thread.join().unwrap_unchecked() };
 
     (x, y)
+}
+
+#[inline(always)]
+fn compute_in_thread<const SLOT: usize>(
+    n_iters: usize,
+    init_value: FieldElement,
+    current_state: SyncState,
+    other_state: SyncState,
+) -> FieldElement {
+    let mut current = init_value;
+
+    for round_constant in ROUND_CONSTANTS.iter().cycle().take(n_iters) {
+        // Compute cube root. This is the most expensive part of the iteration.
+        current = cube_root(&current);
+
+        // Make the current thread's state available to the other thread.
+        loop {
+            if !current_state.ready.load(Ordering::Acquire) {
+                break;
+            }
+        }
+        current_state.low.store(current.0 .0[0], Ordering::Release);
+        current_state.high.store(current.0 .0[1], Ordering::Release);
+        current_state.ready.store(true, Ordering::Release);
+
+        // Finish half of the matrix multiplication and constant addition steps which do not depend
+        // on the other thread.
+        current = current * MDS_MATRIX[SLOT][SLOT] + round_constant[SLOT];
+
+        // Wait for the state value from the other thread
+        let other = {
+            loop {
+                if other_state.ready.load(Ordering::Acquire) {
+                    break;
+                }
+            }
+
+            let other_low = other_state.low.load(Ordering::Acquire);
+            let other_high = other_state.high.load(Ordering::Acquire);
+            other_state.ready.store(false, Ordering::Release);
+
+            FieldElement::new_unchecked(BigInteger128::new([other_low, other_high]))
+        };
+
+        // Finish the round by completing the other half of the matrix multiplication.
+        current += other
+            * if SLOT == 0 {
+                MDS_MATRIX[0][1]
+            } else {
+                MDS_MATRIX[1][0]
+            };
+    }
+
+    current
 }
 
 veedo_codegen::fn_cube_root!();
