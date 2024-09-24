@@ -9,6 +9,12 @@ const N_STATE: u64 = 2;
 const N_COLS: u64 = 10;
 const LENGTH: u64 = 256;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CubeRootOperation {
+    Square,
+    Multiplication,
+}
+
 #[proc_macro]
 pub fn round_constants(_input: TokenStream) -> TokenStream {
     let mut output = String::new();
@@ -104,24 +110,45 @@ fn write_mds_matrix(buf: &mut String) -> std::fmt::Result {
 
 #[allow(clippy::assertions_on_constants)]
 fn write_fn_cube_root(buf: &mut String) -> std::fmt::Result {
-    writeln!(buf, "#[inline(always)]")?;
-    writeln!(
-        buf,
-        "fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
-    )?;
-
     const POW: u128 = (2 * PRIME - 1) / 3;
     assert!(POW != 0, "exponent must not be zero");
 
     const POW_LIMBS: [u64; 2] = [POW as u64, (POW >> 64) as u64];
 
+    let mut ops = vec![];
+    let mut square_count = 0;
+    let mut multiply_count = 0;
+
+    for bit in veedo_ff::BitIteratorBE::without_leading_zeros(POW_LIMBS).skip(1) {
+        ops.push(CubeRootOperation::Square);
+        square_count += 1;
+        if bit {
+            ops.push(CubeRootOperation::Multiplication);
+            multiply_count += 1;
+        }
+    }
+
+    writeln!(buf, "#[inline(always)]")?;
+    writeln!(buf, "/// Finds cube root of a field element.")?;
+    writeln!(buf, "///")?;
+    writeln!(
+        buf,
+        "/// The function is unrolled at compile time to save the runtime iteration \
+        over exponent bits. It contains {} squaring and {} multiplication operations.",
+        square_count, multiply_count
+    )?;
+    writeln!(
+        buf,
+        "fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
+    )?;
+
     // This optimization is possible due to non-zero exp.
     writeln!(buf, "    let mut res = *x;")?;
 
-    for bit in veedo_ff::BitIteratorBE::without_leading_zeros(POW_LIMBS).skip(1) {
-        writeln!(buf, "    res.square_in_place();")?;
-        if bit {
-            writeln!(buf, "    res *= x;")?;
+    for op in ops {
+        match op {
+            CubeRootOperation::Square => writeln!(buf, "    res.square_in_place();")?,
+            CubeRootOperation::Multiplication => writeln!(buf, "    res *= x;")?,
         }
     }
 
