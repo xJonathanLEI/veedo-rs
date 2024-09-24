@@ -1,0 +1,62 @@
+on:
+  push:
+    branches:
+      - "master"
+  pull_request:
+
+name: "Tests"
+jobs:
+  test:
+    name: "Test on ${{ matrix.os }}"
+    runs-on: "${{ matrix.runner }}"
+    strategy:
+      matrix:
+        include:
+          - os: "Ubuntu 24.04"
+            runner: "ubuntu-24.04"
+          - os: "macOS (x86_64)"
+            runner: "macos-13"
+          - os: "macOS (ARM64)"
+            runner: "macos-14"
+
+    steps:
+      - name: "Checkout source code"
+        uses: "actions/checkout@v4"
+
+      - name: "Setup toolchain"
+        uses: "actions-rs/toolchain@v1"
+        with:
+          toolchain: "stable"
+          profile: "minimal"
+          override: true
+
+      - name: "Run tests"
+        run: |
+          cargo test --all
+
+  win-test:
+    name: "Test on Windows (${{ matrix.name }})"
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        include:
+          - name: "GNU"
+            target: "x86_64-pc-windows-gnu"
+          - name: "MSVC"
+            target: "x86_64-pc-windows-msvc"
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Setup toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: "stable"
+          target: "${{ matrix.target }}"
+          profile: minimal
+          override: true
+
+      - name: "Run tests"
+        run: |
+          cargo test --all
