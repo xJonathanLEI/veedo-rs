@@ -1,7 +1,4 @@
-use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use veedo_ff::{BigInteger128, Field, FieldElement};
 
@@ -9,10 +6,10 @@ mod constants;
 use constants::{MDS_MATRIX, ROUND_CONSTANTS};
 
 #[derive(Debug, Clone)]
-struct SyncState {
-    low: Arc<AtomicU64>,
-    high: Arc<AtomicU64>,
-    ready: Arc<AtomicBool>,
+struct SyncState<'a> {
+    low: &'a AtomicU64,
+    high: &'a AtomicU64,
+    ready: &'a AtomicBool,
 }
 
 pub fn compute_delay_function(n_iters: usize, x: u128, y: u128) -> (FieldElement, FieldElement) {
@@ -20,41 +17,36 @@ pub fn compute_delay_function(n_iters: usize, x: u128, y: u128) -> (FieldElement
     let y_montgomery = FieldElement::from(y);
 
     let x_state = SyncState {
-        low: Arc::new(AtomicU64::new(x_montgomery.0 .0[0])),
-        high: Arc::new(AtomicU64::new(x_montgomery.0 .0[1])),
-        ready: Arc::new(AtomicBool::new(false)),
+        low: &AtomicU64::new(0),
+        high: &AtomicU64::new(0),
+        ready: &AtomicBool::new(false),
     };
-
     let y_state = SyncState {
-        low: Arc::new(AtomicU64::new(y_montgomery.0 .0[0])),
-        high: Arc::new(AtomicU64::new(y_montgomery.0 .0[1])),
-        ready: Arc::new(AtomicBool::new(false)),
+        low: &AtomicU64::new(0),
+        high: &AtomicU64::new(0),
+        ready: &AtomicBool::new(false),
     };
 
-    let x_thread = {
-        let current_state = x_state.clone();
-        let other_state = y_state.clone();
+    std::thread::scope(|s| {
+        let x_thread =
+            s.spawn(|| compute_in_thread::<0>(n_iters, x_montgomery, &x_state, &y_state));
+        let y_thread =
+            s.spawn(|| compute_in_thread::<1>(n_iters, y_montgomery, &y_state, &x_state));
 
-        std::thread::spawn(move || {
-            compute_in_thread::<0>(n_iters, x_montgomery, current_state, other_state)
-        })
-    };
-    let y_thread =
-        std::thread::spawn(move || compute_in_thread::<1>(n_iters, y_montgomery, y_state, x_state));
+        // Joining never fails as the computation threads never panic.
+        let x = unsafe { x_thread.join().unwrap_unchecked() };
+        let y = unsafe { y_thread.join().unwrap_unchecked() };
 
-    // Joining never fails as the computation threads never panic.
-    let x = unsafe { x_thread.join().unwrap_unchecked() };
-    let y = unsafe { y_thread.join().unwrap_unchecked() };
-
-    (x, y)
+        (x, y)
+    })
 }
 
 #[inline(always)]
 fn compute_in_thread<const SLOT: usize>(
     n_iters: usize,
     init_value: FieldElement,
-    current_state: SyncState,
-    other_state: SyncState,
+    current_state: &SyncState,
+    other_state: &SyncState,
 ) -> FieldElement {
     let mut current = init_value;
 
