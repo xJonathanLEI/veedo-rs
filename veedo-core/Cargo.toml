@@ -16,3 +16,7 @@ wasm-bindgen-test = "0.3.43"
 [[bench]]
 name = "compute_100k_iterations"
 harness = false
+
+[[bench]]
+name = "inverse_100k_iterations"
+harness = false

@@ -8,7 +8,7 @@
 
 A major goal of `veedo-rs` is to be the fastest VeeDo implementation, enabling it to act as a reference for calculating the required iterations needed for any specific amount of delay. Therefore, performance of the library is actively monitored. A patch would not be merged if it introduces performance regression.
 
-To run the benchmark of computing 100,000 iterations:
+To run the benchmark of computing 100,000 iterations (in both directions):
 
 ```console
 cargo bench
@@ -18,10 +18,10 @@ The following tables includes benchmark results on a curated list of hardware. F
 
 The current numbers have been generated with Rust `1.81.0`.
 
-| Processor          | Ararchitecture | OS                 | Duration for 100,000 iterations |
-| ------------------ | -------------- | ------------------ | ------------------------------- |
-| Apple M3 Max       | ARM64          | macOS Sequoia 15.0 | 81.427 ms                       |
-| Snapdragon 8 Gen 2 | ARM64          | Android 14         | 115.15 ms                       |
+| Processor          | Ararchitecture | OS                 | Duration (100k iterations) | Inverse   |
+| ------------------ | -------------- | ------------------ | -------------------------- | --------- |
+| Apple M3 Max       | ARM64          | macOS Sequoia 15.0 | 80.036 ms                  | 2.8085 ms |
+| Snapdragon 8 Gen 2 | ARM64          | Android 14         | 118.18 ms                  | 4.7796 ms |
 
 > [!TIP]
 >

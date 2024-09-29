@@ -9,6 +9,8 @@ const N_STATE: u64 = 2;
 const N_COLS: u64 = 10;
 const LENGTH: u64 = 256;
 
+const FIELD_ELEMENT: &str = "::veedo_ff::FieldElement";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CubeRootOperation {
     Square,
@@ -41,7 +43,8 @@ fn write_round_constants(buf: &mut String) -> std::fmt::Result {
 
     writeln!(
         buf,
-        "pub const ROUND_CONSTANTS: [[::veedo_ff::FieldElement; 2]; {}] = [",
+        "pub const ROUND_CONSTANTS: [[{}; 2]; {}] = [",
+        FIELD_ELEMENT,
         constants.len()
     )?;
 
@@ -52,13 +55,13 @@ fn write_round_constants(buf: &mut String) -> std::fmt::Result {
         writeln!(buf, "    [")?;
         writeln!(
             buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            x_raw
+            "        {}::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
+            FIELD_ELEMENT, x_raw
         )?;
         writeln!(
             buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            y_raw
+            "        {}::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
+            FIELD_ELEMENT, y_raw
         )?;
         writeln!(buf, "    ],")?;
     }
@@ -69,12 +72,7 @@ fn write_round_constants(buf: &mut String) -> std::fmt::Result {
 }
 
 fn write_mds_matrix(buf: &mut String) -> std::fmt::Result {
-    writeln!(
-        buf,
-        "pub const MDS_MATRIX: [[::veedo_ff::FieldElement; 2]; 2] = ["
-    )?;
-
-    let vectors = [
+    let matrix = [
         [
             FieldElement::from(0x9adea15e459e2a62c3166a2a2054c3d_u128),
             FieldElement::from(0x187ccb0e2b63d835f7cf33d7555ca95d_u128),
@@ -85,26 +83,44 @@ fn write_mds_matrix(buf: &mut String) -> std::fmt::Result {
         ],
     ];
 
-    for vector in vectors {
-        let x_raw = vector[0].0 .0;
-        let y_raw = vector[1].0 .0;
+    // Also generate the inverse matrix.
+    let inverse_matrix = [
+        [
+            matrix[1][1] / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]),
+            matrix[0][1] / (matrix[0][1] * matrix[1][0] - matrix[0][0] * matrix[1][1]),
+        ],
+        [
+            matrix[1][0] / (matrix[0][1] * matrix[1][0] - matrix[0][0] * matrix[1][1]),
+            matrix[0][0] / (matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]),
+        ],
+    ];
 
-        writeln!(buf, "    [")?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            x_raw
-        )?;
-        writeln!(
-            buf,
-            "        ::veedo_ff::FieldElement::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
-            y_raw
-        )?;
-        writeln!(buf, "    ],")?;
+    for (name, matrix) in [
+        ("MDS_MATRIX", matrix),
+        ("MDS_MATRIX_INVERSE", inverse_matrix),
+    ] {
+        writeln!(buf, "pub const {}: [[{}; 2]; 2] = [", name, FIELD_ELEMENT)?;
+
+        for vector in matrix.iter() {
+            let x_raw = vector[0].0 .0;
+            let y_raw = vector[1].0 .0;
+
+            writeln!(buf, "    [")?;
+            writeln!(
+                buf,
+                "        {}::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
+                FIELD_ELEMENT, x_raw
+            )?;
+            writeln!(
+                buf,
+                "        {}::new_unchecked(::veedo_ff::BigInteger128::new({:?})),",
+                FIELD_ELEMENT, y_raw
+            )?;
+            writeln!(buf, "    ],")?;
+        }
+
+        writeln!(buf, "];")?;
     }
-
-    writeln!(buf, "];")?;
-
     Ok(())
 }
 
@@ -139,7 +155,8 @@ fn write_fn_cube_root(buf: &mut String) -> std::fmt::Result {
     )?;
     writeln!(
         buf,
-        "pub fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
+        "pub fn cube_root(x: &{}) -> {} {{",
+        FIELD_ELEMENT, FIELD_ELEMENT,
     )?;
 
     // This optimization is possible due to non-zero exp.
