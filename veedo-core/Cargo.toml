@@ -10,6 +10,9 @@ veedo-ff = { version = "0.1.0", path = "../veedo-ff" }
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
 
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3.43"
+
 [[bench]]
 name = "compute_100k_iterations"
 harness = false

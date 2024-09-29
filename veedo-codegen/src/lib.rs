@@ -139,7 +139,7 @@ fn write_fn_cube_root(buf: &mut String) -> std::fmt::Result {
     )?;
     writeln!(
         buf,
-        "fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
+        "pub fn cube_root(x: &::veedo_ff::FieldElement) -> ::veedo_ff::FieldElement {{"
     )?;
 
     // This optimization is possible due to non-zero exp.

@@ -6,7 +6,7 @@ on:
 
 name: "Tests"
 jobs:
-  test:
+  unix-test:
     name: "Test on ${{ matrix.os }}"
     runs-on: "${{ matrix.runner }}"
     strategy:
@@ -60,3 +60,28 @@ jobs:
       - name: "Run tests"
         run: |
           cargo test --all
+
+  wasm-test:
+    name: "Test on WASM"
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: "Checkout source code"
+        uses: "actions/checkout@v4"
+
+      - name: "Setup toolchain"
+        uses: "actions-rs/toolchain@v1"
+        with:
+          toolchain: "stable"
+          target: "wasm32-unknown-unknown"
+          profile: "minimal"
+          override: true
+
+      - name: "Install wasm-pack"
+        run: |
+          cargo install wasm-pack --locked --version 0.13.0
+
+      - name: "Run veedo-core tests"
+        run: |
+          cd ./veedo-core/
+          wasm-pack test --node --release
