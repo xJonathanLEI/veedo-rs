@@ -20,6 +20,7 @@ The current numbers have been generated with Rust `1.81.0`.
 
 | Processor          | Architecture | OS / Runtime       | 100k Iterations | Inverse   |
 | ------------------ | ------------ | ------------------ | --------------- | --------- |
+| Intel 14900K       | x86_64       | Ubuntu 24.04.1     | 74.324 ms       | 3.4308 ms |
 | Apple M3 Max       | ARM64        | macOS Sequoia 15.0 | 80.036 ms       | 2.8085 ms |
 | Snapdragon 8 Gen 2 | ARM64        | Android 14         | 118.18 ms       | 4.7796 ms |
 | Apple M3 Max       | ARM64/WASM32 | `wasmtime` 25.0.1  | 578.82 ms       | 14.184 ms |
